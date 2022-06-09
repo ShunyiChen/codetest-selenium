@@ -2,9 +2,12 @@ import core
 
 
 def login(username, password):
+    # 浏览器窗口最大化
+    core.wd.maximize_window()
     # url = 'http://localhost:8081/#/login'
     url = 'http://139.224.61.13/dalian-dev/#/login'
     core.wd.get(url)
+    # core.wd.manage().window().maximize();
     core.time.sleep(1)
     core.wd.find_element_by_xpath("//input[@placeholder='账号']").send_keys(username)
     core.wd.find_element_by_xpath("//input[@placeholder='密码']").send_keys(password)

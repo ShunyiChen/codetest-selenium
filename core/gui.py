@@ -62,8 +62,10 @@ class GUI(Frame):
 
 
 def launch():
-    root.geometry("420x80+30+30")
+    root.geometry("420x80+30+70")
     root.title('Selenium自动化控制台')
+    # tk窗口放到最前端显示
+    root.attributes("-topmost", True)
     global gui
     gui = GUI(master=root)
     root.mainloop()
@@ -157,7 +159,8 @@ def loop_users(times):
 def done():
     # core.destroy()
     gui.label["text"] = "执行状态: 已完成"
-    messagebox.showinfo("完成提示", "完成")
+    messagebox.showinfo("完成提示", "执行完成!")
+    gui.btnPause.config(state=DISABLED)
     print("Done")
 
 
