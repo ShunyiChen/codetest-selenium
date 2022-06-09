@@ -51,6 +51,7 @@ class GUI(Frame):
         self.btnPause = Button(self, text="暂停", image=photoimage, compound=LEFT, padx="10",
                                command=pause)
         self.btnPause.pack(side="left")
+        self.btnPause.config(state=DISABLED)
 
         self.btnQuit = Button(self, text="退出", image=photo_quit_image, compound=LEFT, padx="10",
                               command=quit)
@@ -91,6 +92,7 @@ def start():
     # t = job.Job(target=try_logining_for_several_times, args=(1,))
     # t.start()
     gui.btnStart.config(state=DISABLED)
+    gui.btnPause.config(state=ACTIVE)
 
 
 def pause():
