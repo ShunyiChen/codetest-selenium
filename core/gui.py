@@ -1,5 +1,5 @@
 import core
-from core import Tk, Button, Frame, Label, DISABLED, ACTIVE, PhotoImage, LEFT, messagebox, capes, threading, time, job
+from core import Tk, Button, Frame, Label, DISABLED, ACTIVE, PhotoImage, LEFT, messagebox, capes, threading, time
 from conf import users
 
 u_count = 0
@@ -63,8 +63,9 @@ class GUI(Frame):
 
 
 def launch():
-    root.geometry("420x80+30+70")
+    root.geometry("420x80+30+140")
     root.title('Selenium自动化控制台')
+    root.resizable(False, False)
     # tk窗口放到最前端显示
     root.attributes("-topmost", True)
     global gui
@@ -125,6 +126,7 @@ def loop_users(times):
             # 每个用户最多尝试登录10次
             count = 0
             while count < times:
+                # 登录CapES
                 element = capes.login(u.username, u.password)
                 if element != '':
                     print("登录第" + str(count) + "次失败，尝试重新登录")
@@ -136,6 +138,14 @@ def loop_users(times):
                     gui.labelShowContent["text"] = str(u_count) + "/" + str(len(users.users)) + " 当前用户：" + u.username
                     # time.sleep(2)
                     set_anchor_point(2)
+                    capes.downloadTemplate()
+
+                    # 用随机数更新excel内容
+                    capes.updateExcel()
+                    # 批量提交
+                    capes.submitExcel()
+
+                    # 退出CapES
                     capes.logout()
                     # time.sleep(1)
                     set_anchor_point(1)
