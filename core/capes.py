@@ -1,124 +1,298 @@
-import conf.users
-import core
+import os
+import pathlib
+import random
+import time
+import warnings
+from tkinter import messagebox
+
+from aip import AipOcr
+from openpyxl import load_workbook
+from selenium import webdriver
+from selenium.common import NoSuchElementException, TimeoutException
+from selenium.webdriver import Keys
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.support.wait import WebDriverWait
+
+from conf import r_name, w_name
+from core import get_now_time
+
+
+class User:
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+        self.complete = False
+
+
+driver = None
+aip_ocr = None
+users = [User('SADC_01', 'ASDqwe123!'), User('SAC_01', 'ASDqwe123!')]
+start_time = get_now_time()
+end_time = get_now_time()
+_update_progress_label = None
+
+
+def fill_data(update_status_label, update_progress_label):
+    global aip_ocr
+    global driver
+    global _update_progress_label
+    _update_progress_label = update_progress_label
+    # 初始化百度OCR服务连接
+    aip_ocr = AipOcr("25675193", "aq4ULqZRRzIZHglVpVhbtjDK", "SvKmQjurRTEkKNVqIGlje8TH5kKnp8cl")
+    # 加载驱动
+    ser = Service(r'C:\Users\QD291NB\Downloads\selenium\103.0.5060.53\chromedriver_win32\chromedriver.exe')
+    # 实现不自动关闭的重点
+    option = webdriver.ChromeOptions()
+    option.add_experimental_option("detach", True)
+    driver = webdriver.Chrome(service=ser, options=option)
+    # 设置隐式等待时间为10秒
+    # driver.implicitly_wait(10)
+    loop_login()
+    update_status_label("已停止")
+
+
+def loop_login():
+    global start_time
+    start_time = get_now_time()
+    # 浏览器最大化
+    driver.maximize_window()
+    # 打开网址
+    url = 'http://localhost:8081/#/login'
+    driver.get(url)
+
+    i = 0
+    for user in users:
+        times = 0
+        while times < 3:
+            # 登录系统
+            logged_in_user_name = login(user.username, user.password)
+            if logged_in_user_name == '' or logged_in_user_name != user.username:
+                times += 1
+                print('登录失败', times, '次', user.username)
+            else:
+                # 检索
+                retrieves_data_by_year()
+                # 导出
+                bulk_export()
+                # 填写
+                fill_and_create_new_template()
+                # 导入并提交
+                import_and_submit_your_data()
+                print("Did " + user.username + " work")
+                # 退出系统
+                logout(user.username)
+
+                user.complete = True
+                break
+        i += 1
+        _update_progress_label(str(i) + "/" + str(len(users)))
+    global end_time
+    end_time = get_now_time()
+    messagebox.showinfo("提示", "完成!!")
+    driver_quit()
+
+
+def driver_quit():
+    if driver is not None:
+        driver.quit()
 
 
 def login(username, password):
-    # 浏览器窗口最大化
-    core.wd.maximize_window()
-    url = 'http://localhost:8081/#/login'
-    core.wd.get(url)
-    core.time.sleep(1)
-    core.wd.find_element_by_xpath("//input[@placeholder='账号']").send_keys(username)
-    core.wd.find_element_by_xpath("//input[@placeholder='密码']").send_keys(password)
-    element = core.wd.find_element_by_xpath("//img[@alt='']")
-    data = element.screenshot_as_png
-    # 百度OCR
-    res = core.client.basicGeneral(data, {})
-    print(res)
-    # 取得OCR返回结果
+    # 定位用户名文本框
+    username_field = WebDriverWait(driver, 5, poll_frequency=0.05, ignored_exceptions=NoSuchElementException).until(
+        expected_conditions.visibility_of_element_located((By.CSS_SELECTOR, "input[placeholder='账号'][type='text']")))
+
+    # 清除文本框内容
+    # username_field.send_keys(Keys.CONTROL + "a")
+    # username_field.send_keys(Keys.DELETE)
+    driver.execute_script('document.querySelector(".el-input__inner").value=""')
+    # 输入用户名
+    username_field.send_keys(username)
+
+    # 定位密码文本框
+    pass_field = driver.find_element(By.CSS_SELECTOR, "input[placeholder='密码'][type='password']")
+    # pass_field = WebDriverWait(driver, 10).until(expected_conditions.visibility_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
+    # 清除文本框内容
+    pass_field.send_keys(Keys.CONTROL + "a")
+    pass_field.send_keys(Keys.DELETE)
+    # 输入密码
+    pass_field.send_keys(password)
+
+    # 定位验证码图片
+    img = driver.find_element(By.XPATH, "//img[@alt='']")
+    # 验证码截图
+    data = img.screenshot_as_png
+    # 通过ORC识别图像
+    res = aip_ocr.basicGeneral(data, {})
+    # 返回识别结果
     wr = res['words_result']
     code = wr[0]['words']
-    print("识别号码 ", code)
+    validate_code = driver.find_element(By.XPATH, "//input[@placeholder='验证码']")
+    # 清除文本框内容
+    validate_code.send_keys(Keys.CONTROL + "a")
+    validate_code.send_keys(Keys.DELETE)
     # 输入验证码
-    core.wd.find_element_by_xpath("//input[@placeholder='验证码']").send_keys(code)
+    validate_code.send_keys(code)
+
     # 点击登录按钮
-    element = core.wd.find_element_by_tag_name('button')
-    core.time.sleep(1)
-    element.click()
-    core.time.sleep(1)
+    login_button = driver.find_element(By.TAG_NAME, 'button')
+    login_button.click()
+
     try:
-        # 判断页面是否存在错误提示，如存在则返回错误元素
-        element = core.wd.find_element_by_xpath("//p[@class='el-message__content']")
-    except:
-        return ''
-    return element
+        menu = WebDriverWait(driver, 3).until(
+            expected_conditions.visibility_of_element_located((By.CSS_SELECTOR,
+                                                               "span[role='button'][aria-haspopup='list']")))
+        return menu.text
+    except TimeoutException:
+        pass
+    return ''
 
 
-def logout():
-    element = core.wd.find_element_by_xpath(
-        "//ul[@class='site-navbar__menu site-navbar__menu--right el-menu--horizontal el-menu']").click()
-    core.time.sleep(1)
-    element = core.wd.find_element_by_xpath("//li[text()='退出']").click()
-    core.time.sleep(1)
-    element = core.wd.find_element_by_xpath(
-        "//button[@class='el-button el-button--default el-button--small el-button--primary ']").click()
+def logout(username):
+    # 点击用户名菜单
+    menu = WebDriverWait(driver, 30). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//ul[@class='site-navbar__menu site-navbar__menu--right el-menu--horizontal el-menu']")))
+    menu.click()
+
+    logout_item = WebDriverWait(driver, 3). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//li[text()='退出']")))
+    logout_item.click()
+    ok_button = WebDriverWait(driver, 3). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//button[@class='el-button el-button--default el-button--small el-button--primary ']")))
+    ok_button.click()
+    print(username, " has logged out")
 
 
-def downloadTemplate():
-    print("进入KPI填报界面")
-    element = core.wd.find_element_by_xpath("//div[@class='el-scrollbar__view']/ul[@role='menubar']/li[2]").click()
-    core.time.sleep(1)
+def retrieves_data_by_year():
+    # 点击导航栏"KPI填报"
+    kpi_fill_item = WebDriverWait(driver, 3). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//div[@class='el-scrollbar__view']/ul[@role='menubar']/li[2]")))
+    kpi_fill_item.click()
     # 点击填报年度下拉框
-    element = core.wd.find_element_by_xpath(
-        "//div[@class='el-form-item__content']/div[@class='el-select el-select--medium']/div[@class='el-input el-input--medium el-input--suffix']").click()
-    core.time.sleep(1)
-    # 选择“2021FY”
-    element = core.wd.find_element_by_xpath("//li[2]/span[text()='2021FY']").click()
-    core.time.sleep(1)
+    fill_year_item = WebDriverWait(driver, 3). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//div[@class='el-form-item__content']/div[@class='el-select el-select--medium']/div[@class='el-input el-input--medium el-input--suffix']")))
+    fill_year_item.click()
+
+    # 选择“2023FY”
+    select_year_item = WebDriverWait(driver, 3). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//li[1]/span[text()='2023FY']")))
+    select_year_item.click()
+
     # 点击清除填报期下拉框
-    element = core.wd.find_element_by_xpath(
-        "//div[@class='el-col el-col-7']/div[@class='el-form-item el-form-item--medium']/div[@class='el-form-item__content']/div[@class='el-select el-select--medium']/div[@class='el-input el-input--medium el-input--suffix']/span[@class='el-input__suffix']/span[@class='el-input__suffix-inner']").click()
-    core.time.sleep(1)
+    clear_period_item = WebDriverWait(driver, 3). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//div[@class='el-col el-col-7']/div[@class='el-form-item el-form-item--medium']/div[@class='el-form-item__content']/div[@class='el-select el-select--medium']/div[@class='el-input el-input--medium el-input--suffix']/span[@class='el-input__suffix']/span[@class='el-input__suffix-inner']")))
+    clear_period_item.click()
+
     # 点击查询按钮
-    element = core.wd.find_element_by_xpath(
-        "//button[@class='el-button el-button--primary el-button--medium']/span[text()='查询']").click()
-    core.time.sleep(1)
+    driver.find_element(By.XPATH,
+                        "//button[@class='el-button el-button--primary el-button--medium']/span[text()='查询']").click()
+
+    WebDriverWait(driver, 5). \
+        until(expected_conditions.visibility_of_element_located((By.CLASS_NAME,
+                                                                 "el-pagination__total")))
+
+
+def is_file_downloaded():
+    # check if file downloaded file path exists
+    while not os.path.exists(r_name):
+        time.sleep(1)
+        # check file
+        if os.path.isfile(r_name):
+            print("File download is completed")
+        else:
+            print("File download is not completed")
+
+
+def bulk_export():
+    # 删除上次执行过的文件
+    r_name_file = pathlib.Path(r_name)
+    if r_name_file.exists():
+        r_name_file.unlink()
+    w_name_file = pathlib.Path(w_name)
+    if w_name_file.exists():
+        w_name_file.unlink()
+
     # 点击批量导出按钮
-    element = core.wd.find_element_by_xpath(
-        "//button[@class='el-button fillBt el-button--primary el-button--medium']/span[text()='批量导出']").click()
-    core.time.sleep(10)
+    bulk_export_button = driver.find_element(By.XPATH,
+                                             "//button[@class='el-button fillBt el-button--primary el-button--medium']/span[text()='批量导出']")
+    bulk_export_button.click()
+    # check if file downloaded file path exists
+    is_file_downloaded()
 
 
-def updateExcel():
-    print("更新excel内容")
-    file_path = core.os.path.join('./', conf.users.file_name)
-    wb = core.load_workbook(file_path)
-    # sheet = wb.get_sheet_names()
-    # print(sheet)
-    w1 = wb.get_sheet_by_name('Sheet1')
-    # print(w1)
-    rows = w1.max_row
-    for i in range(1, rows):
-        # 单位列
-        unit = w1["H"+str(i+1)].value
-        if unit == '吨':
-            w1["G" + str(i + 1)] = core.random.randint(10000,100000)
-        elif unit == '标准立方米':
-            w1["G" + str(i + 1)] = core.random.randint(10000,100000)
-        elif unit == '千瓦时':
-            w1["G" + str(i + 1)] = core.random.randint(50000,1000000)
-        elif unit == '万元':
-            w1["G" + str(i + 1)] = round(core.random.uniform(500.01,1000.99),2) #保留两位小数
+def fill_and_create_new_template():
+    with warnings.catch_warnings(record=True):
+        file_path = os.path.join('./', r_name)
+        wb = load_workbook(file_path)
+        # sheet = wb.get_sheet_names()
+        w1 = wb.get_sheet_by_name('Sheet1')
+        rows = w1.max_row
+        for i in range(1, rows):
+            # 单位列
+            unit = w1["H" + str(i + 1)].value
+            if unit == '吨':
+                w1["G" + str(i + 1)] = random.randint(10000, 100000)
+            elif unit == '标准立方米':
+                w1["G" + str(i + 1)] = random.randint(10000, 100000)
+            elif unit == '起':
+                w1["G" + str(i + 1)] = random.randint(10, 252)
+            elif unit == '家':
+                w1["G" + str(i + 1)] = random.randint(1000, 2520)
+            elif unit == '件':
+                w1["G" + str(i + 1)] = random.randint(3000, 12520)
+            elif unit == '千瓦时':
+                w1["G" + str(i + 1)] = random.randint(50000, 1000000)
+            elif unit == '万元':
+                w1["G" + str(i + 1)] = round(random.uniform(500.01, 1000.99), 2)  # 保留两位小数
+            else:
+                w1["G" + str(i + 1)] = random.randint(3000, 12520)
+        wb.save(w_name)
 
-    wb.save(conf.users.generated_file_name)
-    print('excel更新完成')
-    core.time.sleep(1)
+
+def import_and_submit_your_data():
+    # 导入文件
+    element = driver.find_element_by_name('file')
+    element.send_keys(w_name)
+
+    # 点击"确定"
+    ok_button = WebDriverWait(driver, 30). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//button[@class='el-button el-button--default el-button--small el-button--primary ']")))
+    ok_button.click()
+
+    # 点击"批量提交"
+    bulk_submit_button = WebDriverWait(driver, 30). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//button[@class='el-button fillBt el-button--primary el-button--medium']/span[text()='批量提交']")))
+    bulk_submit_button.click()
+
+    # 点击"确认"
+    confirm_button = WebDriverWait(driver, 30). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//button[@class='el-button el-button--default el-button--small el-button--primary ']")))
+    confirm_button.click()
+
+    # 先等待“弹出窗口”出现，然后再点击“确定”关闭
+    WebDriverWait(driver, 60). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH,
+                                                                 "//p[text()='批量提交成功']")))
+    okay_button = driver.find_element(By.XPATH,
+                                      "//button[@class='el-button el-button--default el-button--small el-button--primary ']")
+    okay_button.click()
 
 
+def get_start_time():
+    return start_time
 
-def submitExcel():
-    print("提交excel内容")
-    # core.time.sleep(3)
-    # 点击批量导出按钮
-    # element = core.wd.find_element_by_xpath(
-    #     "//button[@class='el-button fillBt el-button--primary el-button--medium']/span[text()='批量导入']").click()
 
-    element = core.wd.find_element_by_name('file')
-    element.send_keys(conf.users.generated_file_name)
-
-    core.time.sleep(15)
-    # 导入成功后点确定
-    element = core.wd.find_element_by_xpath(
-        "//button[@class='el-button el-button--default el-button--small el-button--primary ']").click()
-
-    core.time.sleep(3)
-    # 批量提交
-    element = core.wd.find_element_by_xpath(
-        "//button[@class='el-button fillBt el-button--primary el-button--medium']/span[text()='批量提交']").click()
-    # 提交暂存数据后点确定
-    element = core.wd.find_element_by_xpath(
-        "//button[@class='el-button el-button--default el-button--small el-button--primary ']").click()
-
-    core.time.sleep(15)
-
-    print("提交excel完成")
+def get_end_time():
+    return end_time
