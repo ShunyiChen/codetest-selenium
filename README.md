@@ -1,9 +1,6 @@
 # codetest-selenium
 Automation scripts in python
 
-# 网站
-http://139.224.61.13/dalian-dev/#/login
-
 # 下载Chrome webdriver
 http://chromedriver.storage.googleapis.com/index.html
 

@@ -82,9 +82,7 @@ class LoginTests(unittest.TestCase):
 
     def login(self):
         # 定位用户名文本框
-        self.user_name_field = WebDriverWait(self.driver, 3).until(
-            expected_conditions.visibility_of_element_located(
-                (By.CSS_SELECTOR, "input[placeholder='账号'][type='text']")))
+        self.user_name_field = self.driver.find_element(By.CSS_SELECTOR, "input[placeholder='账号'][type='text']")
         # 清除文本框内容
         self.user_name_field.send_keys(Keys.CONTROL + "a")
         self.user_name_field.send_keys(Keys.DELETE)
@@ -124,9 +122,7 @@ class LoginTests(unittest.TestCase):
 
         try:
             # 判断是否获取到人名菜单
-            menu = WebDriverWait(self.driver, 3).until(
-                expected_conditions.visibility_of_element_located((By.CSS_SELECTOR,
-                                                                   "span[role='button'][aria-haspopup='list']")))
+            menu = self.driver.find_element(By.CSS_SELECTOR, "span[role='button'][aria-haspopup='list']")
             return menu.text
         except TimeoutException:
             pass
