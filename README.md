@@ -68,3 +68,7 @@ urllib3             1.26.8
 w3lib               1.22.0
 wsproto             1.0.0
 zope.interface      5.4.0
+
+
+EXE打包:
+pyinstaller "C:\Users\QD291NB\PycharmProjects\setests\main.spec"

@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from selenium.common import TimeoutException
+from selenium.common import TimeoutException, NoSuchElementException
 from selenium.webdriver import Keys
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -124,7 +124,7 @@ class LoginTests(unittest.TestCase):
             # 判断是否获取到人名菜单
             menu = self.driver.find_element(By.CSS_SELECTOR, "span[role='button'][aria-haspopup='list']")
             return menu.text
-        except TimeoutException:
+        except (NoSuchElementException,TimeoutException):
             pass
         return ''
 

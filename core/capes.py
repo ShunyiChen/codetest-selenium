@@ -14,6 +14,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.common.action_chains import ActionChains
 
 from conf import r_name, w_name
 from core import get_now_time
@@ -65,7 +66,8 @@ def loop_login():
     i = 0
     for user in users:
         times = 0
-        while times < 3:
+        # 允许单用户最大登录次数为10
+        while times < 10:
             # 登录系统
             logged_in_user_name = login(user.username, user.password)
             if logged_in_user_name == '' or logged_in_user_name != user.username:
@@ -141,7 +143,7 @@ def login(username, password):
     login_button.click()
 
     try:
-        menu = WebDriverWait(driver, 3).until(
+        menu = WebDriverWait(driver, 5).until(
             expected_conditions.visibility_of_element_located((By.CSS_SELECTOR,
                                                                "span[role='button'][aria-haspopup='list']")))
         return menu.text
@@ -186,11 +188,15 @@ def retrieves_data_by_year():
                                                                  "//li[1]/span[text()='2023FY']")))
     select_year_item.click()
 
-    # 点击清除填报期下拉框
-    clear_period_item = WebDriverWait(driver, 3). \
-        until(expected_conditions.visibility_of_element_located((By.XPATH,
-                                                                 "//div[@class='el-col el-col-7']/div[@class='el-form-item el-form-item--medium']/div[@class='el-form-item__content']/div[@class='el-select el-select--medium']/div[@class='el-input el-input--medium el-input--suffix']/span[@class='el-input__suffix']/span[@class='el-input__suffix-inner']")))
-    clear_period_item.click()
+    # 定位鼠标悬停元素-填报期下拉框
+    clear_period_item = driver.find_element(By.XPATH, "//*[@id='pane-fill-fill-kpi']/div/div/div/form/div[1]/div[2]/div/div/div/div/input")
+    # 鼠标悬停
+    ActionChains(driver).move_to_element(clear_period_item).perform()
+
+    # 点击"填报期下拉框"上关闭图标
+    close_icon = WebDriverWait(driver, 3). \
+        until(expected_conditions.visibility_of_element_located((By.XPATH, "//*[@id='pane-fill-fill-kpi']/div/div/div/form/div[1]/div[2]/div/div/div/div/span/span")))
+    close_icon.click()
 
     # 点击查询按钮
     driver.find_element(By.XPATH,
@@ -202,7 +208,7 @@ def retrieves_data_by_year():
 
 
 def is_file_downloaded():
-    # check if file downloaded file path exists
+    # checks if file downloaded file path exists
     while not os.path.exists(r_name):
         time.sleep(1)
         # check file
