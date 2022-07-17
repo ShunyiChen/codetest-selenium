@@ -61,8 +61,8 @@ class LoginTests(unittest.TestCase):
 
         # warning_msg = self.driver.find_element(By.CLASS_NAME, "el-form-item__error")
         msg_content = self.driver.find_element(By.XPATH, "//div[@class='el-form-item__error']")
-        # 强制等待
-        time.sleep(5)
+        # 强制等待3秒
+        time.sleep(3)
 
         self.assertEqual("出错了", msg_content.text, "错误原因：提示信息不一致")
 
@@ -79,6 +79,8 @@ class LoginTests(unittest.TestCase):
             else:
                 self.assertEqual("admin", login_user_name, "错误原因：登录用户名与主页显示名称不符。")
                 break
+        # 强制等待3秒
+        time.sleep(3)
 
     def login(self):
         # 定位用户名文本框
@@ -124,7 +126,7 @@ class LoginTests(unittest.TestCase):
             # 判断是否获取到人名菜单
             menu = self.driver.find_element(By.CSS_SELECTOR, "span[role='button'][aria-haspopup='list']")
             return menu.text
-        except (NoSuchElementException,TimeoutException):
+        except NoSuchElementException:
             pass
         return ''
 
